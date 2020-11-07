@@ -1,0 +1,41 @@
+import com.amazonaws.auth.AWSStaticCredentialsProvider
+import com.amazonaws.auth.BasicSessionCredentials
+import com.amazonaws.services.s3.AmazonS3Client
+import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder
+import com.amazonaws.services.securitytoken.model.AssumeRoleRequest
+import com.amazonaws.services.securitytoken.model.Credentials
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath group: 'com.amazonaws', name: 'aws-java-sdk-sts', version: '1.11.895'
+        classpath group: 'com.amazonaws', name: 'aws-java-sdk-s3', version: '1.11.895'
+    }
+}
+
+task listS3Buckets() {
+    doLast {
+        AssumeRoleRequest assumeRoleRequest = new AssumeRoleRequest()
+                .withRoleArn(findProperty('roleArn') as String)
+                .withRoleSessionName('gradle')
+
+        Credentials sessionCredentials = AWSSecurityTokenServiceClientBuilder
+                .standard()
+                .build()
+                .assumeRole(assumeRoleRequest)
+                .getCredentials()
+
+        BasicSessionCredentials awsCredentials = new BasicSessionCredentials(
+                sessionCredentials.getAccessKeyId(),
+                sessionCredentials.getSecretAccessKey(),
+                sessionCredentials.getSessionToken())
+
+        new AmazonS3Client(new AWSStaticCredentialsProvider(awsCredentials))
+                .listBuckets()
+                .each {
+                    bucket -> println bucket.name
+                }
+    }
+}
